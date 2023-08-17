@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.urls import reverse
+from taggit.managers import TaggableManager
 
 
 class PublishedManager(models.Manager):
@@ -32,6 +33,7 @@ class Post(models.Model):
     status = models.CharField(max_length=2,
                               choices=Status.choices,
                               default=Status.DRAFT)
+    tags = TaggableManager()
     # the default manager
     objects = models.Manager()
     # our custom manager
@@ -57,3 +59,36 @@ class Post(models.Model):
                            self.publish.day,
                            self.slug
                        ])
+
+
+class Comment(models.Model):
+
+    # post.comments.all()
+    # ManyToOneField() a post can have multiple...
+    # comments but each comment is only associated with...
+    # one post 
+    post = models.ForeignKey(Post,
+                             on_delete=models.CASCADE,
+                             related_name='comments')
+    # name of the user writhing comment
+    name = models.CharField(max_length=80)
+    # his email
+    email = models.EmailField()
+    # main text of the comment
+    body = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    # whether comment is active or not.
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        # older posts at the top
+        ordering = ('created',) 
+        # so as to improve query performance...
+        # from database
+        indexes = [
+            models.Index(fields=['created']),
+        ] 
+
+    def __str__(self):
+        return f"Comment by {self.name} on {self.post}"
