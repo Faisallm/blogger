@@ -3,11 +3,13 @@ from .models import Post, Comment
 from django.http import Http404
 from django.core.paginator import Paginator, EmptyPage, \
     PageNotAnInteger
-from .forms import EmailPostForm, CommentForm
+from .forms import EmailPostForm, CommentForm, SearchForm
 from django.core.mail import send_mail
 from django.views.decorators.http import require_POST
 from taggit.models import Tag
 from django.db.models import Count
+from django.contrib.postgres.search import SearchVector, \
+    SearchQuery, SearchRank
 
 
 def post_list(request, tag_slug=None):
@@ -66,7 +68,7 @@ def post_detail(request, year, month, day, post):
                   {'post': post,
                    'comments': comments,
                    'form': form,
-                   'similar_posts':similar_posts})
+                   'similar_posts': similar_posts})
 
 
 # we use both the same view for displaying the initial form
@@ -127,3 +129,32 @@ def post_comment(request, post_id):
                   {'form': form,
                    'comment': comment,
                    'post': post})
+
+
+def post_search(request):
+    form = SearchForm()
+    query = None
+    results = []
+
+    # to check if the form is submitted...
+    # we check for the query parameter...
+    # in the request.GET dictionary
+    if 'query' in request.GET:
+        # the form will be submitted using get
+        form = SearchForm(data=request.GET)
+        if form.is_valid():
+            query = form.cleaned_data['query']
+            # title matches will prevail over body matches
+            search_vector = SearchVector('title', weight="A") + \
+                SearchVector('body', weight="B")
+            search_query = SearchQuery(query)
+            results = Post.published.annotate(
+                search=search_vector,
+                rank=SearchRank(search_vector, search_query))\
+                .filter(rank__gte=0.3).order_by('-rank')
+
+    return render(request,
+                  'blog/post/search.html',
+                  {'form': form,
+                   'query': query,
+                   'results': results})

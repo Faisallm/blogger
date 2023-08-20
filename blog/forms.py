@@ -18,3 +18,8 @@ class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
         fields = ('name', 'email', 'body')
+
+
+class SearchForm(forms.Form):
+    # form input for the search query
+    query = forms.CharField()
